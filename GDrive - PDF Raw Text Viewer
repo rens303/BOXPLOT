@@ -1,0 +1,227 @@
+from google.colab import drive
+drive.mount('/content/drive')
+
+#---------------------------------------------------------------------------------------
+
+!pip install pdfplumber PyMuPDF
+
+import os
+import pdfplumber
+from ipywidgets import Dropdown, IntText, Button, VBox
+from IPython.display import display, clear_output
+from google.colab import output
+import re
+import subprocess
+import sys
+
+try:
+    import pdfplumber
+    import fitz # Part of PyMuPDF
+except ImportError:
+    print("Installing required libraries: pdfplumber and PyMuPDF...")
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "pdfplumber", "PyMuPDF"])
+    import pdfplumber
+    import fitz
+
+#---------------------------------------------------------------------------------------
+#Specify folder containing text documents:
+
+input_folder_path = '/content/drive/My Drive/'
+pdf_files = []
+print(f"Exploring folder: {input_folder_path}")
+for root, dirs, files in os.walk(input_folder_path):
+    level = root.replace(input_folder_path, '').count(os.sep)
+    indent = ' ' * 4 * (level)
+    print(f'{indent}{os.path.basename(root)}/')
+    subindent = ' ' * 4 * (level + 1)
+    for f in files:
+        if f.lower().endswith('.pdf'):
+            print(f'{subindent}{f}')
+            pdf_files.append(os.path.join(root, f))
+
+print("\nTotal PDF files found:")
+for pdf_files_found in pdf_files:
+    print(pdf_files_found)
+
+#---------------------------------------------------------------------------------------
+
+# TROUBLESHOOT - CLASSIFIED FILE VIEWER
+
+import os
+import pdfplumber
+from ipywidgets import Dropdown, IntText, Button, VBox, Output, interactive, Checkbox
+from IPython.display import display, clear_output
+from google.colab import output
+
+# Assuming normalize_text function is defined elsewhere in the notebook
+def normalize_text(text):
+    """
+    Normalizes text (e.g., removes extra whitespace, converts to lowercase).
+    (Placeholder - replace with your actual normalization logic)
+    """
+    if text:
+        # Re-use the normalize_text function from cell kuR0OFD0JRyN
+        # This ensures consistency and avoids code duplication.
+        # We assume cell kuR0OFD0JRyN has been executed and normalize_text is available.
+        try:
+            import unicodedata
+            t = unicodedata.normalize("NFKC", text)
+            t = t.replace("\u00A0", " ")
+            t = t.replace("’", "'")
+            t = t.replace("`", "'")
+            t = t.replace("n°", "nº")
+            t = re.sub(r"[–—]", "-", t)
+            t = re.sub(r"\s+", " ", t)
+            return t
+        except ImportError:
+            # Fallback if unicodedata is not available (though it should be in Colab)
+            return " ".join(text.split()).lower()
+    return ""
+
+
+def view_normalized_text(file_names, page_number, view_all):
+    """
+    Extracts and displays normalized text from a specific page or all pages of PDF files.
+
+    Args:
+        file_names (list): A list of the base names of the PDF files to process.
+        page_number (int): The page number (1-based) to extract text from (ignored if view_all is True).
+        view_all (bool): If True, extracts text from all pages of all specified files.
+    """
+    with output_widget:
+        output_widget.clear_output()
+        if view_all:
+            print(f"--- Normalized Text from all selected files ---")
+        else:
+            print(f"--- Normalized Text from selected file ---")
+
+    for file_name in file_names:
+        full_file_path = ""
+        # Assuming pdf_files is defined in a previous cell
+        for f_path in pdf_files:
+            if os.path.basename(f_path) == file_name:
+                full_file_path = f_path
+                break
+
+        if not full_file_path:
+            with output_widget:
+                print(f"Error: Full path for file '{file_name}' not found.")
+            continue
+
+        try:
+            with pdfplumber.open(full_file_path) as pdf:
+                total_pages = len(pdf.pages)
+                with output_widget:
+                    print(f"\n--- Processing {file_name} ---")
+
+                if view_all:
+                    for i in range(total_pages):
+                        text = pdf.pages[i].extract_text() or "[No text extracted]"
+                        normalized_text = normalize_text(text)
+                        with output_widget:
+                            print(f"\n--- Page {i + 1} ---")
+                            print(normalized_text)
+                else:
+                    if 1 <= page_number <= total_pages:
+                        text = pdf.pages[page_number - 1].extract_text() or "[No text extracted]"
+                        normalized_text = normalize_text(text)
+                        with output_widget:
+                            print(f"\n--- Page {page_number} ---")
+                            print(normalized_text)
+                    else:
+                        with output_widget:
+                            print(f"Error: Page {page_number} not found in {file_name}. Total pages: {total_pages}")
+
+        except FileNotFoundError:
+             with output_widget:
+                print(f"Error: File not found at {full_file_path}")
+        except Exception as e:
+            with output_widget:
+                print(f"Error extracting text from {file_name}: {e}")
+
+
+# Extract unique classes from file names
+# Assuming pdf_files is defined in a previous cell
+classes = sorted(list(set([os.path.basename(f)[:6] for f in pdf_files if len(os.path.basename(f)) >= 6])))
+classes.insert(0, 'All') # Add 'All' option
+
+# Create widgets for the viewer
+class_dropdown = Dropdown(
+    options=classes,
+    description='Select Class:',
+    disabled=False,
+)
+
+file_dropdown = Dropdown(
+    options=[os.path.basename(f) for f in pdf_files], # Assuming pdf_files is defined in a previous cell
+    description='Select PDF:',
+    disabled=False,
+)
+
+page_input = IntText(
+    value=1,
+    description='Page Number:',
+    disabled=False
+)
+
+view_all_checkbox = Checkbox(
+    value=False,
+    description='View All Pages of Selected PDF',
+    disabled=False,
+    indent=False
+)
+
+view_all_class_checkbox = Checkbox(
+    value=False,
+    description='View All Pages of All PDFs in Selected Class',
+    disabled=False,
+    indent=False
+)
+
+
+view_button = Button(
+    description='View Text'
+)
+
+output_widget = Output()
+
+# Apply CSS styling to the output widget to enable text wrapping
+output_widget.add_class('text-wrap')
+
+# Function to update file dropdown options based on selected class
+def update_file_dropdown(*args):
+    selected_class = class_dropdown.value
+    if selected_class == 'All':
+        file_dropdown.options = [os.path.basename(f) for f in pdf_files] # Assuming pdf_files is defined in a previous cell
+    else:
+        filtered_files = [os.path.basename(f) for f in pdf_files if os.path.basename(f).startswith(selected_class)]
+        file_dropdown.options = filtered_files
+
+# Observe changes in the class dropdown
+class_dropdown.observe(update_file_dropdown, names='value')
+
+# Define what happens when the button is clicked
+def on_view_button_clicked(b):
+    selected_class = class_dropdown.value
+    if view_all_class_checkbox.value:
+        if selected_class == 'All':
+            files_to_process = [os.path.basename(f) for f in pdf_files]
+        else:
+            files_to_process = [os.path.basename(f) for f in pdf_files if os.path.basename(f).startswith(selected_class)]
+        view_normalized_text(files_to_process, page_input.value, True)
+    elif view_all_checkbox.value:
+        view_normalized_text([file_dropdown.value], page_input.value, True)
+    else:
+        view_normalized_text([file_dropdown.value], page_input.value, False)
+
+
+view_button.on_click(on_view_button_clicked)
+
+# Display the widgets
+print("### Normalized Text Viewer")
+print("Select a class and PDF file, and enter a page number to view the normalized text. Check 'View All Pages of Selected PDF' to see all pages of the selected file, or 'View All Pages of All PDFs in Selected Class' to see all pages of all files in the selected class.")
+display(VBox([class_dropdown, file_dropdown, page_input, view_all_checkbox, view_all_class_checkbox, view_button, output_widget]))
+
+# Add custom CSS to enable text wrapping for the output widget
+from IPython.display import HTML
+display(HTML("<style>.text-wrap pre { white-space: pre-wrap; }</style>"))
