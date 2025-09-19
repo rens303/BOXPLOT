@@ -1,0 +1,46 @@
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# ============================================================
+# CONFIGURATION (styling only)
+# ------------------------------------------------------------
+BOXPLOT_COLOR = "black"        # Box color (e.g. "red", "black", "#FF5733")
+TITLE = "Boxplot of Orders"      # Plot title
+X_LABEL = "Orders"               # X-axis label
+FIGSIZE = (6, 4)                 # Figure size (width, height) in inches
+# ============================================================
+
+# Step 1: Load raw values from Excel (data location hardcoded) Excel > Sheetname (here: 'data') > Data range (here: 'M2:M361')
+raw = xl("data!M2:M361")
+
+print("=== DEBUG: Raw object from Excel ===")
+print("Type:", type(raw))
+print("Preview:", raw if isinstance(raw, (int, float)) else str(raw)[:500])
+
+# Step 2: Normalize into a flat list
+if isinstance(raw, pd.DataFrame):
+    values = raw.iloc[:, 0].tolist()
+elif isinstance(raw, pd.Series):
+    values = raw.tolist()
+elif isinstance(raw, list):
+    values = [x[0] if isinstance(x, list) else x for x in raw]  # flatten nested lists
+else:  # single number (scalar)
+    values = [raw]
+
+print("=== DEBUG: Normalized to list ===")
+print("Length:", len(values))
+print("First 10 values:", values[:10])
+
+# Step 3: Convert to pandas Series and drop blanks
+order_values = pd.Series(values).dropna()
+
+print("=== DEBUG: Final pandas Series ===")
+print(order_values.head())
+
+# Step 4: Plot
+plt.figure(figsize=FIGSIZE)
+sns.boxplot(x=order_values, color=BOXPLOT_COLOR)
+plt.title(TITLE)
+plt.xlabel(X_LABEL)
+plt.show()
