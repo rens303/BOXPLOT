@@ -1,0 +1,1 @@
+Get-ChildItem -Path "C:\Users\" -File | Rename-Item -NewName { "2502xxx" + $_.Name }
