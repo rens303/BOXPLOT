@@ -1,0 +1,1 @@
+Get-ChildItem -Path . -Recurse -File | ForEach-Object { Move-Item -Path $_.FullName -Destination ".\" -Force }
