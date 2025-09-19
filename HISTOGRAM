@@ -1,0 +1,48 @@
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# ============================================================
+# CONFIGURATION (easy to adjust for future use cases)
+# ------------------------------------------------------------
+HIST_COLOR = "skyblue"       # Histogram color
+TITLE = "Distribution of Orders"  # Plot title
+FIGSIZE = (6, 4)             # Figure size (width, height) in inches
+BINS = 30                    # Number of bins for histogram
+# ============================================================
+
+# Step 1: Load raw values from Excel (data location hardcoded) Sheet='db' Range='P2:P609'
+raw = xl("db!P2:P609")
+
+print("=== DEBUG: Raw object from Excel ===")
+print("Type:", type(raw))
+print("Preview:", raw if isinstance(raw, (int, float)) else str(raw)[:500])
+
+# Step 2: Normalize into a flat list
+if isinstance(raw, pd.DataFrame):
+    values = raw.iloc[:, 0].tolist()
+elif isinstance(raw, pd.Series):
+    values = raw.tolist()
+elif isinstance(raw, list):
+    values = [x[0] if isinstance(x, list) else x for x in raw]  # flatten nested lists
+else:  # single number (scalar)
+    values = [raw]
+
+print("=== DEBUG: Normalized to list ===")
+print("Length:", len(values))
+print("First 10 values:", values[:10])
+
+# Step 3: Convert to pandas Series and drop blanks
+order_values = pd.Series(values).dropna()
+
+print("=== DEBUG: Final pandas Series ===")
+print(order_values.head())
+
+# Step 4: Plot Histogram with KDE
+plt.figure(figsize=FIGSIZE)
+sns.histplot(order_values, bins=BINS, kde=True, color=HIST_COLOR)
+
+plt.title(TITLE)
+plt.xlabel("Orders")
+plt.ylabel("Frequency")
+plt.show()
